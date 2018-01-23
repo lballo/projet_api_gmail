@@ -9,57 +9,48 @@ require 'dotenv'
 
 Dotenv.load
 
-
- 
-=begin credentials = Google::Auth::UserRefreshCredentials.new(
-  client_id: "YOUR CLIENT ID",
-  client_secret: "YOUR CLIENT SECRET",
-  scope: [
-    "https://www.googleapis.com/auth/drive",
-    "https://spreadsheets.google.com/feeds/",
-  ],
-  redirect_uri: "http://example.com/redirect")
-auth_url = credentials.authorization_uri
-=end
-
 SESSION = GoogleDrive::Session.from_config("config.json")
+w = SESSION.spreadsheet_by_key("1TNYguHiSGvk6M5I6p-vSUDohIxqSR8ylXXCR3MhSegI").worksheets[0]
 
-# wk = "1TNYguHiSGvk6M5I6p-vSUDohIxqSR8ylXXCR3MhSegI" #officiel
-wk = "1WHB8kTSsRwuAw-puZ7AQoNPXtRNjv5xLaOSgx5ZOQuM" #test
+PAGE_URL = "http://www.annuaire-des-mairies.com/yvelines.html"
 
-w = SESSION.spreadsheet_by_key(wk).worksheets[0]
+
+
+def get_spreadsheet
+    sheets_session = GoogleDrive::Session.from_config("config.json")
+    # sheet_key = "1TNYguHiSGvk6M5I6p-vSUDohIxqSR8ylXXCR3MhSegI" #officiel
+    sheet_key = "1WHB8kTSsRwuAw-puZ7AQoNPXtRNjv5xLaOSgx5ZOQuM" #test
+    sheets_session.spreadsheet_by_key(sheet_key).worksheets.first
+end
 
 w.reload
 
-#PAGE_URL = "http://www.annuaire-des-mairies.com/yvelines.html"
-def get_the_email_of_a_townhal_from_its_webpage(url) #récupère les pages URL sur la page principale des mairies
+def get_the_email_of_a_townhal_from_its_webpage(url) # on récupère les pages URL sur la page principale des mairies
     page = Nokogiri::HTML(open(url))
     table_catch = page.xpath('//html/body/table/tr[3]/td/table/tr[1]/td[1]/table[4]/tr[2]/td/table/tr[4]/td[2]/p')
     table_catch.each do |elem|
         return elem.text
     end
 end
+
+
 def get_all_the_urls_of_townhalls(url) #récupère les mails pour chaque mairie
     page = Nokogiri::HTML(open(url))
     table= []
     url_catch = page.css("td p a").css(".lientxt")
     url_catch.each  do |city|
-        relative_url = "http://annuaire-des-mairies.com" + city['href'][1..-1]
-        hashing = Hash.new
+        relative_url = "http://annuaire-des-mairies.com" + city['href'][1..-1] #on récupère les url des mairies en changeant la fin de l'url
+        hashing = Hash.new #on créé un nouveau hash qui nous permettra de stocker les données
         
-        hashing["city_name"] = city.text
-        hashing["city_email"] = get_the_email_of_a_townhal_from_its_webpage(relative_url)
-        table << hashing
-        # puts hashing
-        # puts table
+        hashing["city_name"] = city.text #scrolle les noms des mairies
+        hashing["city_email"] = get_the_email_of_a_townhal_from_its_webpage(relative_url) #scrolle les adresses mails des mairies à partir des mails 
+        table << hashing #on complète la table de hashage
     end
-    table     
+    table
 end
 
-
-#table = get_all_the_urls_of_townhalls(PAGE_URL)
-
 def fill_spreadsheet #remplis le spreadsheet sur le google drive
+w = SESSION.spreadsheet_by_key("1TNYguHiSGvk6M5I6p-vSUDohIxqSR8ylXXCR3MhSegI").worksheets[0]
 
   w[1,1] = "Nom des villes"
   w[1,2] = "email des mairies"
@@ -78,48 +69,10 @@ def fill_spreadsheet #remplis le spreadsheet sur le google drive
   end
 end
 
-
-def go_through_all_the_lines # récupère les mail et nom des mairies dans le spreadsheet
-  w = SESSION.spreadsheet_by_key("1WHB8kTSsRwuAw-puZ7AQoNPXtRNjv5xLaOSgx5ZOQuM").worksheets[0]
-  # i = 2
-data = []
-
-   w.rows.each do |row|
-  #   city_email = row[i, 2]
-  #   city_name = row[i, 1]
-    # city_names<<row[0]
-    # city_emails<<row[1]
-    # i+=1
-    data << row[1]
-    binding.pry
-    end
-
-  return data
-end
+get_the_email_of_a_townhal_from_its_webpage(PAGE_URL)
+table = get_all_the_urls_of_townhalls(PAGE_URL)
+fill_spreadsheet
 
 
-def send_mail_to_line #envoie un mail à chacune des mairies
-  
-# username = ENV['USERNAME']
-# password = ENV['PASSWORD']
-
-# gmail = Gmail.new(username, password)
-# go_through_all_the_lines.each do | |
-  
-# end
-#   gmail.deliver do
-#     to 'city_emails'
-#     subject "The Hacking project: proposition de partenariat"
-#   end
-#     text_part do
-#       body "Text of plaintext message."
-#   end
-# end
-
-#send_mail_to_line
-
-#def get_the_email__html
-
-
-#w.save
+w.save
 
